@@ -1,4 +1,26 @@
-# DEPMAP
+<p align="center">
+  <img src="logo.png" width="180">
+</p>
+
+<p align="center">
+  Analyze Python repositories and visualize their dependency structure.
+</p>
+
+<p align="center">
+
+  <img src="https://img.shields.io/badge/Python-3.10%2B-blue">
+
+  <img src="https://img.shields.io/github/license/CraftyCode121/DEPMAP">
+
+  <img src="https://img.shields.io/github/stars/CraftyCode121/DEPMAP">
+
+  <img src="https://img.shields.io/github/issues/CraftyCode121/DEPMAP">
+
+  <img src="https://img.shields.io/github/last-commit/CraftyCode121/DEPMAP">
+
+</p>
+
+---
 
 DEPMAP analyzes a Python repository and builds a dependency graph out of it — which files import which, which functions call which — so you can see the structure of a codebase and answer "what breaks if I change this file?" before you find out the hard way.
 
