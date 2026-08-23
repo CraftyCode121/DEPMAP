@@ -10,13 +10,22 @@
 
   <img src="https://img.shields.io/badge/Python-3.10%2B-blue">
 
-  <img src="https://img.shields.io/github/license/CraftyCode121/DEPMAP">
-
+  <a href="https://github.com/CraftyCode121/DEPMAP/blob/main/LICENSE">
+  <img src="https://img.shields.io/github/license/CraftyCode121/DEPMAP?label=License">
+</a>
   <img src="https://img.shields.io/github/stars/CraftyCode121/DEPMAP">
 
   <img src="https://img.shields.io/github/issues/CraftyCode121/DEPMAP">
 
   <img src="https://img.shields.io/github/last-commit/CraftyCode121/DEPMAP">
+
+  <img src="https://img.shields.io/github/repo-size/CraftyCode121/DEPMAP">
+
+  <img src="https://img.shields.io/github/v/release/CraftyCode121/DEPMAP">
+
+  <img src="https://img.shields.io/github/contributors/CraftyCode121/DEPMAP">
+
+  <img src="https://img.shields.io/github/forks/CraftyCode121/DEPMAP">
 
 </p>
 
