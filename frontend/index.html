@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DEPMAP</title>
+<script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+<script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+<script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FFFFFF;
+    --rule: #DDDCD6;
+    --rule-strong: #B8B7B0;
+    --ink: #1A1A18;
+    --ink-muted: #6B6B66;
+    --accent: #1F4E3D;
+    --accent-wash: #EAF0EC;
+    --flag: #A6432D;
+    --flag-wash: #F7EAE6;
+    --func: #3E4F73;
+    --func-wash: #EBEDF3;
+    --import-wash: #F1F1EE;
+    --ext: #8A6B3C;
+    --ext-wash: #F4EFE6;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', sans-serif;
+  }
+
+  /* ---------- Masthead ---------- */
+  #masthead {
+    border-bottom: 2px solid var(--ink);
+    padding: 22px 32px 16px;
+  }
+  #mastheadTop {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  #title {
+    font-family: 'Source Serif 4', serif;
+    font-weight: 600;
+    font-size: 26px;
+    letter-spacing: 0.2px;
+  }
+  #subtitle {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12.5px;
+    color: var(--ink-muted);
+    margin-top: 2px;
+  }
+  #metaBlock {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  #controlRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 16px;
+  }
+  #controlRow label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+  #repoPath {
+    flex: 1;
+    max-width: 620px;
+    background: #fff;
+    border: 1px solid var(--rule-strong);
+    border-radius: 2px;
+    color: var(--ink);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    padding: 8px 10px;
+    outline: none;
+  }
+  #repoPath:focus { border-color: var(--accent); }
+  #repoPath::placeholder { color: #A6A69F; }
+
+  #analyzeBtn {
+    background: var(--ink);
+    color: #fff;
+    border: none;
+    border-radius: 2px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 500;
+    font-size: 12.5px;
+    padding: 9px 20px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  #analyzeBtn:hover { background: var(--accent); }
+  #analyzeBtn:disabled { opacity: 0.4; cursor: default; background: var(--ink); }
+
+  #statLine {
+    margin-left: auto;
+    display: flex;
+    gap: 20px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+  #statLine b { color: var(--ink); font-weight: 500; }
+
+  /* ---------- Layout ---------- */
+  #body {
+    display: flex;
+    height: calc(100vh - 118px);
+  }
+
+  #figureCol {
+    flex: 1;
+    position: relative;
+    border-right: 1px solid var(--rule);
+  }
+  #figureLabel {
+    position: absolute;
+    top: 14px; left: 20px;
+    font-family: 'Source Serif 4', serif;
+    font-size: 13px;
+    font-style: italic;
+    color: var(--ink-muted);
+    z-index: 5;
+  }
+  #cy { width: 100%; height: 100%; }
+
+  #emptyState {
+    position: absolute; inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    text-align: center;
+  }
+  #emptyState h2 {
+    font-family: 'Source Serif 4', serif;
+    font-weight: 400;
+    font-style: italic;
+    font-size: 17px;
+    color: var(--ink-muted);
+    margin: 0;
+  }
+  #emptyState p {
+    font-size: 12.5px;
+    color: var(--ink-muted);
+    margin: 0;
+    max-width: 320px;
+  }
+
+  #loadingOverlay {
+    position: absolute; inset: 0;
+    background: rgba(255,255,255,0.9);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 10px;
+  }
+  #loadingOverlay.active { display: flex; }
+  .spinner {
+    width: 22px; height: 22px;
+    border: 2px solid var(--rule);
+    border-top-color: var(--ink);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loadingOverlay span {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: var(--ink-muted);
+    letter-spacing: 0.4px;
+  }
+
+  #errorBanner {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    background: var(--flag-wash);
+    border-bottom: 1px solid var(--flag);
+    color: var(--flag);
+    padding: 8px 20px;
+    font-size: 12.5px;
+    display: none;
+    align-items: center;
+    gap: 8px;
+    z-index: 10;
+  }
+  #errorBanner.active { display: flex; }
+
+  /* ---------- Margin note / side panel ---------- */
+  #panel {
+    width: 320px;
+    padding: 20px;
+    overflow-y: auto;
+    display: none;
+  }
+  #panel.active { display: block; }
+  #panelEmpty {
+    width: 320px;
+    padding: 20px;
+    display: flex;
+    align-items: flex-start;
+  }
+  #panelEmpty p {
+    font-family: 'Source Serif 4', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink-muted);
+    line-height: 1.6;
+  }
+
+  .noteLabel {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    color: var(--ink-muted);
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+  }
+
+  #panelFileName {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    word-break: break-all;
+  }
+  #panelFilePath {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-muted);
+    margin-top: 3px;
+    word-break: break-all;
+    line-height: 1.5;
+  }
+
+  .panelSection { margin-top: 20px; }
+
+  .impactRow { display: flex; gap: 28px; margin-top: 10px; }
+  .impactStat .num {
+    font-family: 'Source Serif 4', serif;
+    font-size: 30px;
+    font-weight: 600;
+    color: var(--flag);
+    line-height: 1;
+  }
+  .impactStat.zero .num { color: var(--rule-strong); }
+  .impactStat .lbl {
+    font-size: 10.5px;
+    color: var(--ink-muted);
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  #summaryBody { margin-top: 10px; }
+  #summaryBody .plain {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: var(--ink-muted);
+  }
+
+  .sumBlock { margin-bottom: 16px; }
+  .sumBlock:last-child { margin-bottom: 0; }
+  .sumHeading {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--ink-muted);
+    margin-bottom: 7px;
+  }
+
+  .tagRow { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    background: var(--import-wash);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--rule-strong);
+    color: var(--ink);
+    padding: 3px 7px 3px 6px;
+    border-radius: 3px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .tagKind {
+    font-size: 8.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--ink-muted);
+  }
+  .tag-external { border-left-color: var(--ext); background: var(--ext-wash); }
+  .tag-external .tagKind { color: var(--ext); }
+  .tag-relative { border-left-color: var(--func); background: var(--func-wash); }
+  .tag-relative .tagKind { color: var(--func); }
+  .tag-internal { border-left-color: var(--accent); background: var(--accent-wash); }
+  .tag-internal .tagKind { color: var(--accent); }
+
+  .tagLegend {
+    display: flex; gap: 14px; flex-wrap: wrap;
+    font-size: 10px; color: var(--ink-muted);
+    margin-top: 8px;
+  }
+  .tagLegend span { display: flex; align-items: center; gap: 4px; }
+  .tagLegend i { width: 7px; height: 7px; display: inline-block; }
+
+  .overviewRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--ext);
+    background: var(--ext-wash);
+    border-radius: 2px;
+    padding: 7px 10px;
+    margin-bottom: 6px;
+  }
+  .overviewRow:last-child { margin-bottom: 0; }
+  .overviewRow .pkgName {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: var(--ext);
+    font-weight: 500;
+  }
+  .overviewRow .pkgCount {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+
+  .classCard {
+    border: 1px solid var(--accent);
+    border-left-width: 3px;
+    background: var(--accent-wash);
+    border-radius: 2px;
+    padding: 9px 11px;
+    margin-bottom: 8px;
+  }
+  .classCard:last-child { margin-bottom: 0; }
+  .classCard .clsName {
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 500;
+    font-size: 12px;
+    color: var(--accent);
+  }
+  .classCard .clsBase {
+    font-size: 10.5px;
+    color: var(--ink-muted);
+    font-style: italic;
+    margin-left: 6px;
+  }
+  .classCard .methodRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 7px;
+  }
+  .methodChip {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    background: #fff;
+    border: 1px solid var(--rule-strong);
+    color: var(--ink);
+    padding: 2px 6px;
+    border-radius: 2px;
+  }
+
+  .funcRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--func);
+    background: var(--func-wash);
+    border-radius: 2px;
+    padding: 6px 10px;
+    margin-bottom: 6px;
+  }
+  .funcRow:last-child { margin-bottom: 0; }
+  .funcRow .fnName {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: var(--func);
+    font-weight: 500;
+  }
+  .funcRow .fnCalls {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+
+  /* ---------- Legend ---------- */
+  #legend {
+    position: absolute;
+    bottom: 16px; left: 20px;
+    display: flex;
+    gap: 18px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-muted);
+  }
+  #legend .item { display: flex; align-items: center; gap: 6px; }
+  #legend .swatch { width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--ink); }
+</style>
+</head>
+<body>
+
+<div id="masthead">
+  <div id="mastheadTop">
+    <div>
+      <div id="title">DEPMAP</div>
+      <div id="subtitle">Dependency &amp; Impact Analysis of a Source Repository</div>
+    </div>
+    <div id="metaBlock">No repository loaded</div>
+  </div>
+  <div id="controlRow">
+    <label for="repoPath">Repository path</label>
+    <input id="repoPath" type="text" placeholder="/path/to/your/repo" />
+    <button id="analyzeBtn">Analyze</button>
+    <div id="statLine"></div>
+  </div>
+</div>
+
+<div id="body">
+  <div id="figureCol">
+    <div id="figureLabel">Fig. 1 — File dependency graph</div>
+    <div id="emptyState">
+      <h2>No repository loaded</h2>
+      <p>Enter a local path above and select Analyze to trace the dependency structure.</p>
+    </div>
+    <div id="cy"></div>
+    <div id="loadingOverlay">
+      <div class="spinner"></div>
+      <span>TRACING DEPENDENCIES…</span>
+    </div>
+    <div id="errorBanner"><span id="errorText"></span></div>
+    <div id="legend">
+      <div class="item"><span class="swatch" style="background:#fff"></span>file</div>
+      <div class="item"><span class="swatch" style="background:var(--flag); border-color:var(--flag)"></span>impacted</div>
+    </div>
+  </div>
+
+  <div id="panelEmpty">
+    <div style="width:100%">
+      <p id="panelEmptyHint">Select a node in Fig. 1 to inspect its dependencies, downstream impact, and a structural summary.</p>
+      <div id="overviewSection" style="display:none">
+        <div class="noteLabel">Fig. 2 — External dependencies</div>
+        <div id="overviewList"></div>
+      </div>
+    </div>
+  </div>
+  <div id="panel">
+    <div class="noteLabel">Selected file</div>
+    <div id="panelFileName">—</div>
+    <div id="panelFilePath"></div>
+
+    <div class="panelSection">
+      <div class="noteLabel">Impact if changed</div>
+      <div class="impactRow">
+        <div class="impactStat" id="directStat"><div class="num">0</div><div class="lbl">Direct</div></div>
+        <div class="impactStat" id="transitiveStat"><div class="num">0</div><div class="lbl">Transitive</div></div>
+      </div>
+    </div>
+
+    <div class="panelSection">
+      <div class="noteLabel">Structural summary</div>
+      <div id="summaryBody">—</div>
+    </div>
+  </div>
+</div>
+
+<script>
+cytoscape.use(cytoscapeDagre);
+
+const API = "http://localhost:8000";
+let cy = null;
+let externalPkgSet = new Set();
+
+const els = {
+  repoPath: document.getElementById("repoPath"),
+  analyzeBtn: document.getElementById("analyzeBtn"),
+  statLine: document.getElementById("statLine"),
+  metaBlock: document.getElementById("metaBlock"),
+  emptyState: document.getElementById("emptyState"),
+  loadingOverlay: document.getElementById("loadingOverlay"),
+  errorBanner: document.getElementById("errorBanner"),
+  errorText: document.getElementById("errorText"),
+  panel: document.getElementById("panel"),
+  panelEmpty: document.getElementById("panelEmpty"),
+  overviewSection: document.getElementById("overviewSection"),
+  overviewList: document.getElementById("overviewList"),
+  panelFileName: document.getElementById("panelFileName"),
+  panelFilePath: document.getElementById("panelFilePath"),
+  directStat: document.getElementById("directStat"),
+  transitiveStat: document.getElementById("transitiveStat"),
+  summaryBody: document.getElementById("summaryBody"),
+};
+
+function showError(msg) {
+  els.errorText.textContent = msg;
+  els.errorBanner.classList.add("active");
+  setTimeout(() => els.errorBanner.classList.remove("active"), 4500);
+}
+
+function setLoading(active) {
+  els.loadingOverlay.classList.toggle("active", active);
+}
+
+async function analyze() {
+  const repoPath = els.repoPath.value.trim();
+  if (!repoPath) { showError("Enter a repository path first."); return; }
+
+  els.analyzeBtn.disabled = true;
+  setLoading(true);
+  els.panel.classList.remove("active");
+  els.panelEmpty.style.display = "flex";
+
+  try {
+    const analyzeRes = await fetch(`${API}/analyze?repo_path=${encodeURIComponent(repoPath)}`, { method: "POST" });
+    if (!analyzeRes.ok) {
+      const body = await analyzeRes.json().catch(() => ({}));
+      throw new Error(body.detail || `Analyze failed (${analyzeRes.status})`);
+    }
+    const summary = await analyzeRes.json();
+
+    els.statLine.innerHTML =
+      `<span><b>${summary.files}</b> files</span>` +
+      `<span><b>${summary.file_edges}</b> dependencies</span>` +
+      `<span><b>${summary.functions}</b> functions</span>`;
+    els.metaBlock.textContent = repoPath.split("/").filter(Boolean).pop();
+
+    const graphRes = await fetch(`${API}/graph/files`);
+    if (!graphRes.ok) throw new Error("Could not load graph data.");
+    const data = await graphRes.json();
+
+    renderGraph(data);
+    els.emptyState.style.display = "none";
+
+    await loadExternalDeps();
+  } catch (err) {
+    showError(err.message || "Could not reach the analysis API.");
+  } finally {
+    setLoading(false);
+    els.analyzeBtn.disabled = false;
+  }
+}
+
+async function loadExternalDeps() {
+  try {
+    const res = await fetch(`${API}/external-deps`);
+    if (!res.ok) return;
+    const deps = await res.json();  // {pkg: [files]}
+
+    externalPkgSet = new Set(Object.keys(deps));
+
+    const sorted = Object.entries(deps).sort((a, b) => b[1].length - a[1].length);
+    els.overviewList.innerHTML = sorted.map(([pkg, files]) => `
+      <div class="overviewRow">
+        <span class="pkgName">${escapeHtml(pkg)}</span>
+        <span class="pkgCount">${files.length} file${files.length === 1 ? "" : "s"}</span>
+      </div>
+    `).join("");
+
+    els.overviewSection.style.display = sorted.length ? "block" : "none";
+  } catch {
+    // non-critical — overview just won't show
+  }
+}
+
+function shortLabel(path) { return path.split("/").pop(); }
+
+function escapeHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function classifyImport(importStr) {
+  if (importStr.startsWith(".")) return "relative";
+  const top = importStr.split(".")[0];
+  if (externalPkgSet.has(top)) return "external";
+  return "internal";
+}
+
+const KIND_LABEL = { external: "pkg", relative: "rel", internal: "mod" };
+
+// Parses the plain-text summary produced by summarize_file() into structured HTML.
+// Falls back to showing the raw text if the shape doesn't match what's expected.
+function renderSummaryHtml(text) {
+  const lines = text.split("\n");
+  let imports = [];
+  const classes = [];   // {name, base, methods: []}
+  const funcs = [];     // {name, calls}
+  let section = null;   // "classes" | "functions"
+  let matched = false;
+
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+
+    let m = line.match(/^\s*Imports:\s*(.+)$/);
+    if (m) { imports = m[1].split(",").map(s => s.trim()).filter(Boolean); matched = true; continue; }
+
+    if (/^\s*Defines \d+ class\(es\):/.test(line)) { section = "classes"; matched = true; continue; }
+    if (/^\s*Defines \d+ top-level function\(s\):/.test(line)) { section = "functions"; matched = true; continue; }
+
+    m = line.match(/^\s*-\s*Class `([^`]+)`(?:\s*\(inherits from ([^)]+)\))?\s*with\s*\d+\s*method\(s\):\s*(.*)$/);
+    if (m && section === "classes") {
+      classes.push({
+        name: m[1],
+        base: m[2] || null,
+        methods: m[3].split(",").map(s => s.trim()).filter(Boolean),
+      });
+      matched = true;
+      continue;
+    }
+
+    m = line.match(/^\s*-\s*`([^`]+)`(?:,\s*calls\s*(\d+)\s*other function\(s\))?/);
+    if (m && section === "functions") {
+      funcs.push({ name: m[1], calls: m[2] ? parseInt(m[2], 10) : 0 });
+      matched = true;
+      continue;
+    }
+  }
+
+  if (!matched) {
+    return `<div class="plain">${escapeHtml(text)}</div>`;
+  }
+
+  let html = "";
+
+  if (imports.length) {
+    html += `<div class="sumBlock"><div class="sumHeading">Imports (${imports.length})</div>`;
+    html += `<div class="tagRow">${imports.map(i => {
+      const kind = classifyImport(i);
+      return `<span class="tag tag-${kind}"><span class="tagKind">${KIND_LABEL[kind]}</span>${escapeHtml(i)}</span>`;
+    }).join("")}</div>`;
+    html += `<div class="tagLegend">
+      <span><i style="background:var(--ext)"></i>pkg — external library</span>
+      <span><i style="background:var(--func)"></i>rel — relative import</span>
+      <span><i style="background:var(--accent)"></i>mod — internal module</span>
+    </div></div>`;
+  }
+
+  if (classes.length) {
+    html += `<div class="sumBlock"><div class="sumHeading">Classes (${classes.length})</div>`;
+    classes.forEach(c => {
+      html += `<div class="classCard">`;
+      html += `<span class="clsName">${escapeHtml(c.name)}</span>`;
+      if (c.base) html += `<span class="clsBase">extends ${escapeHtml(c.base)}</span>`;
+      if (c.methods.length) {
+        html += `<div class="methodRow">${c.methods.map(m => `<span class="methodChip">${escapeHtml(m)}()</span>`).join("")}</div>`;
+      }
+      html += `</div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (funcs.length) {
+    html += `<div class="sumBlock"><div class="sumHeading">Top-level functions (${funcs.length})</div>`;
+    funcs.forEach(f => {
+      html += `<div class="funcRow">`;
+      html += `<span class="fnName">${escapeHtml(f.name)}()</span>`;
+      html += `<span class="fnCalls">${f.calls ? `calls ${f.calls}` : "no calls"}</span>`;
+      html += `</div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (!imports.length && !classes.length && !funcs.length) {
+    html = `<div class="plain">No imports, classes, or top-level functions detected.</div>`;
+  }
+
+  return html;
+}
+
+function renderGraph(data) {
+  if (cy) cy.destroy();
+
+  const elements = [
+    ...data.nodes.map(n => ({ data: { id: n.id, label: shortLabel(n.id) } })),
+    ...data.edges.map(e => ({ data: { source: e.source, target: e.target } })),
+  ];
+
+  cy = cytoscape({
+    container: document.getElementById("cy"),
+    elements: elements,
+    style: [
+      { selector: "node", style: {
+          "background-color": "#FFFFFF",
+          "border-width": 1.5,
+          "border-color": "#1A1A18",
+          "label": "data(label)",
+          "font-family": "IBM Plex Mono, monospace",
+          "font-size": 9,
+          "color": "#6B6B66",
+          "width": 22,
+          "height": 22,
+          "text-wrap": "wrap",
+          "text-max-width": "90px",
+          "text-valign": "bottom",
+          "text-margin-y": 6,
+      }},
+      { selector: "edge", style: {
+          "width": 1.2,
+          "line-color": "#B8B7B0",
+          "target-arrow-color": "#B8B7B0",
+          "target-arrow-shape": "triangle",
+          "arrow-scale": 0.7,
+          "curve-style": "straight",
+      }},
+      { selector: ".impacted", style: {
+          "background-color": "#F7EAE6",
+          "border-color": "#A6432D",
+          "border-width": 2,
+          "color": "#A6432D",
+      }},
+      { selector: ".selected", style: {
+          "border-color": "#1F4E3D",
+          "border-width": 2.5,
+      }},
+    ],
+    layout: { name: "dagre", rankDir: "LR", nodeSep: 42, rankSep: 85 },
+  });
+
+  cy.on("tap", "node", async (evt) => {
+    const node = evt.target;
+    cy.nodes().removeClass("impacted").removeClass("selected");
+    node.addClass("selected");
+
+    const nodeId = node.id();
+    els.panelFileName.textContent = shortLabel(nodeId);
+    els.panelFilePath.textContent = nodeId;
+    els.panelEmpty.style.display = "none";
+    els.panel.classList.add("active");
+    els.summaryBody.innerHTML = `<div class="plain">Loading…</div>`;
+
+    try {
+      const impactRes = await fetch(`${API}/impact/files?node_id=${encodeURIComponent(nodeId)}`);
+      const impact = await impactRes.json();
+
+      els.directStat.querySelector(".num").textContent = impact.direct.length;
+      els.directStat.classList.toggle("zero", impact.direct.length === 0);
+      els.transitiveStat.querySelector(".num").textContent = impact.transitive.length;
+      els.transitiveStat.classList.toggle("zero", impact.transitive.length === 0);
+
+      [...impact.direct, ...impact.transitive].forEach(id => {
+        cy.getElementById(id).addClass("impacted");
+      });
+    } catch {
+      els.directStat.querySelector(".num").textContent = "–";
+      els.transitiveStat.querySelector(".num").textContent = "–";
+    }
+
+    try {
+      const summaryPath = nodeId.replace(/^\/+/, "");
+      const summaryRes = await fetch(`${API}/summary/${summaryPath}`);
+      if (summaryRes.ok) {
+        const { summary } = await summaryRes.json();
+        els.summaryBody.innerHTML = renderSummaryHtml(summary);
+      } else {
+        els.summaryBody.innerHTML = `<div class="plain">No summary available for this file.</div>`;
+      }
+    } catch {
+      els.summaryBody.innerHTML = `<div class="plain">Could not load summary.</div>`;
+    }
+  });
+
+  cy.on("tap", (evt) => {
+    if (evt.target === cy) {
+      cy.nodes().removeClass("impacted").removeClass("selected");
+      els.panel.classList.remove("active");
+      els.panelEmptyHint = document.getElementById("panelEmptyHint");
+      els.panelEmpty.style.display = "flex";
+    }
+  });
+}
+
+els.analyzeBtn.addEventListener("click", analyze);
+els.repoPath.addEventListener("keydown", (e) => { if (e.key === "Enter") analyze(); });
+</script>
+
+</body>
+</html>
