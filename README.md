@@ -21,8 +21,10 @@
 
   <img src="https://img.shields.io/github/repo-size/CraftyCode121/DEPMAP">
 
-  <img src="https://img.shields.io/github/v/release/CraftyCode121/DEPMAP">
-
+  <a href="https://github.com/CraftyCode121/DEPMAP/releases">
+  <img src="https://img.shields.io/github/v/release/CraftyCode121/DEPMAP?label=Release">
+</a>
+  
   <img src="https://img.shields.io/github/contributors/CraftyCode121/DEPMAP">
 
   <img src="https://img.shields.io/github/forks/CraftyCode121/DEPMAP">
